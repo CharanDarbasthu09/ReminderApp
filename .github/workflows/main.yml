@@ -15,23 +15,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Generate native iOS project
-        run: npx expo prebuild --platform ios
+      - name: Prebuild iOS project
+        run: npx expo prebuild --platform ios --clean
 
-      - name: CocoaPods Install
+      - name: Install CocoaPods
         run: |
           cd ios
           pod install
 
-      - name: Build Unsigned Physical Device ARM64 IPA
+      - name: Build ARM64 iPhone IPA
         run: |
-          xcodebuild -workspace ios/ReminderApp.xcworkspace \ 
+          xcodebuild -workspace ios/ReminderApp.xcworkspace \
                      -scheme ReminderApp \
                      -sdk iphoneos \
                      -configuration Release \
