@@ -1,4 +1,4 @@
-name: Build Real Physical iPhone IPA
+name: Build Real Physical iPhone 16 IPA
 
 on:
   push:
@@ -9,7 +9,7 @@ jobs:
   build-ipa:
     runs-on: macos-14
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -17,52 +17,38 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Prebuild iOS project
-        run: npx expo prebuild --platform ios --clean
-
-      - name: Setup Xcode
-        uses: apple/actions/setup-xcode@v2
-        with:
-          xcode-version: '15.2' # pick the minimum 15.x that satisfies your Podfile (15.2/15.3 etc.)
-
-      - name: Show Xcode info
+      - name: Install Dependencies
         run: |
-          xcodebuild -version
-          sw_vers
-          which pod || true
-          pod --version || true
+          npm install -g eas-cli
+          npm install
 
-      - name: Install CocoaPods
+      - name: Prebuild Native iOS Project
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Pod Install
         run: |
           cd ios
-          pod install
+          pod install --repo-update
 
-      - name: Build ARM64 iPhone IPA
+      - name: Build Physical iPhone ARM64 IPA
         run: |
-          WORKSPACE=$(ls -d ios/*.xcworkspace | head -n 1)
-          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync(0,'utf-8')); console.log(d.workspace.schemes[0]);")
-          echo "Building Workspace: $WORKSPACE with Scheme: $SCHEME"
-
-          xcodebuild -workspace "$WORKSPACE" \
-                     -scheme "$SCHEME" \
+          cd ios
+          xcodebuild -workspace ReminderApp.xcworkspace \
+                     -scheme ReminderApp \
                      -sdk iphoneos \
                      -configuration Release \
-                     -archivePath ios/ReminderApp.xcarchive \
+                     -archivePath ReminderApp.xcarchive \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGN_IDENTITY="" \
                      archive
 
-          mkdir -p ios/Payload
-          cp -r ios/ReminderApp.xcarchive/Products/Applications/*.app ios/Payload/
-          cd ios
-          zip -r ReminderApp.ipa Payload
+          mkdir -p Payload
+          cp -r ReminderApp.xcarchive/Products/Applications/*.app Payload/
+          zip -r ../ReminderApp-ARM64-iPhone16.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ReminderApp-ARM64-iPhone16.ipa
-          path: ios/ReminderApp.ipa
+          path: ReminderApp-ARM64-iPhone16.ipa
