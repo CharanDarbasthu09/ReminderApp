@@ -31,7 +31,7 @@ jobs:
 
       - name: Build Unsigned Physical Device ARM64 IPA
         run: |
-          xcodebuild -workspace ios/ReminderApp.xcworkspace \
+          xcodebuild -workspace ios/ReminderApp.xcworkspace \ 
                      -scheme ReminderApp \
                      -sdk iphoneos \
                      -configuration Release \
