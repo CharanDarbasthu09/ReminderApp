@@ -49,11 +49,6 @@
           "sounds": []
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "reminder-app-local"
-      }
-    }
+    ]
   }
 }
