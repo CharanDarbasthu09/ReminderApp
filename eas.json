@@ -9,7 +9,15 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "simulator": {
+      "ios": {
+        "simulator": true
+      }
     },
     "production": {
       "autoIncrement": true
