@@ -1,0 +1,53 @@
+name: Build Real Physical iPhone IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios
+
+      - name: CocoaPods Install
+        run: |
+          cd ios
+          pod install
+
+      - name: Build Unsigned Physical Device ARM64 IPA
+        run: |
+          xcodebuild -workspace ios/ReminderApp.xcworkspace \
+                     -scheme ReminderApp \
+                     -sdk iphoneos \
+                     -configuration Release \
+                     -archivePath ios/ReminderApp.xcarchive \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     archive
+
+          mkdir -p ios/Payload
+          cp -r ios/ReminderApp.xcarchive/Products/Applications/ReminderApp.app ios/Payload/
+          cd ios
+          zip -r ReminderApp.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReminderApp-ARM64-iPhone16.ipa
+          path: ios/ReminderApp.ipa
