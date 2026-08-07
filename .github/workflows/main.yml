@@ -31,21 +31,22 @@ jobs:
           cd ios
           pod install --repo-update
 
-      - name: Build Physical iPhone ARM64 IPA
+      - name: Build Physical iPhone ARM64 Binary
         run: |
           cd ios
           xcodebuild -workspace ReminderApp.xcworkspace \
                      -scheme ReminderApp \
                      -sdk iphoneos \
                      -configuration Release \
-                     -archivePath ReminderApp.xcarchive \
+                     -derivedDataPath build \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGN_IDENTITY="" \
-                     archive
+                     DEVELOPMENT_TEAM="" \
+                     build
 
           mkdir -p Payload
-          cp -r ReminderApp.xcarchive/Products/Applications/*.app Payload/
+          cp -r build/Build/Products/Release-iphoneos/*.app Payload/
           zip -r ../ReminderApp-ARM64-iPhone16.ipa Payload
 
       - name: Upload IPA Artifact
