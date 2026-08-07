@@ -36,20 +36,14 @@ jobs:
           cd ios
           xcodebuild -workspace ReminderApp.xcworkspace \
                      -scheme ReminderApp \
-                     -sdk iphoneos \
                      -configuration Release \
+                     -destination 'generic/platform=iOS' \
                      -derivedDataPath build \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGN_IDENTITY="" \
-                     DEVELOPMENT_TEAM="" \
-                     ONLY_ACTIVE_ARCH=NO \
-                     COMPILER_INDEX_STORE_ENABLE=NO \
-                     build || {
-                       echo "=== XCODEBUILD ERROR LOGS ==="
-                       cat build/Logs/Build/*.xcactivitylog 2>/dev/null | strings | grep -i "error:" | head -n 30
-                       exit 1
-                     }
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO \
+                     AD_HOC_CODE_SIGNING_ALLOWED=YES \
+                     build
 
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/*.app Payload/
