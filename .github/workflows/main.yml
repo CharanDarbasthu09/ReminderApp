@@ -23,6 +23,18 @@ jobs:
       - name: Prebuild iOS project
         run: npx expo prebuild --platform ios --clean
 
+      - name: Setup Xcode
+        uses: apple/actions/setup-xcode@v2
+        with:
+          xcode-version: '15.2' # pick the minimum 15.x that satisfies your Podfile (15.2/15.3 etc.)
+
+      - name: Show Xcode info
+        run: |
+          xcodebuild -version
+          sw_vers
+          which pod || true
+          pod --version || true
+
       - name: Install CocoaPods
         run: |
           cd ios
