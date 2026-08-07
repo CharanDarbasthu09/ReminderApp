@@ -43,7 +43,13 @@ jobs:
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGN_IDENTITY="" \
                      DEVELOPMENT_TEAM="" \
-                     build
+                     ONLY_ACTIVE_ARCH=NO \
+                     COMPILER_INDEX_STORE_ENABLE=NO \
+                     build || {
+                       echo "=== XCODEBUILD ERROR LOGS ==="
+                       cat build/Logs/Build/*.xcactivitylog 2>/dev/null | strings | grep -i "error:" | head -n 30
+                       exit 1
+                     }
 
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/*.app Payload/
