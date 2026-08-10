@@ -267,7 +267,7 @@ export default function FunnySplashScreen({ onFinish, isDarkMode }) {
 
       {/* App Title & Tagline Branding */}
       <Animated.View style={[styles.brandingContainer, { opacity: titleFade }]}>
-        <Text style={[styles.brandTitle, { color: theme.titleText }]}>We Are Here To Remind ⏰</Text>
+        <Text style={[styles.brandTitle, { color: theme.titleText }]}>Yaadgar ⏰</Text>
         <Text style={[styles.brandSub, { color: theme.subText }]}>You can relax! 😌✨</Text>
 
         {/* Animated Progress Bar */}

@@ -8,7 +8,7 @@ if (typeof global !== 'undefined') {
       querySelectorAll: () => [],
       addEventListener: () => {},
       removeEventListener: () => {},
-      title: 'Reminder App',
+      title: 'Yaadgar',
       body: { style: {} },
       documentElement: { style: {} },
       location: { protocol: 'http:', href: 'http://localhost:8081/' },
@@ -52,7 +52,6 @@ import HomeScreen from './src/screens/HomeScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import NotesScreen from './src/screens/NotesScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
-import MindGamesScreen from './src/screens/MindGamesScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import AddEditReminderModal from './src/screens/AddEditReminderModal';
 import RingingAlarmModal from './src/components/RingingAlarmModal';
@@ -239,8 +238,6 @@ export default function App() {
                   iconName = focused ? 'create' : 'create-outline';
                 } else if (route.name === 'History') {
                   iconName = focused ? 'document-text' : 'document-text-outline';
-                } else if (route.name === 'Mind Games') {
-                  iconName = focused ? 'game-controller' : 'game-controller-outline';
                 } else if (route.name === 'Settings') {
                   iconName = focused ? 'settings' : 'settings-outline';
                 }
@@ -292,13 +289,6 @@ export default function App() {
               options={{ title: 'Activity Log' }}
             >
               {() => <HistoryScreen history={history} isDarkMode={isDarkMode} />}
-            </Tab.Screen>
-
-            <Tab.Screen
-              name="Mind Games"
-              options={{ title: 'Funny Time 🤪' }}
-            >
-              {() => <MindGamesScreen isDarkMode={isDarkMode} />}
             </Tab.Screen>
 
             <Tab.Screen

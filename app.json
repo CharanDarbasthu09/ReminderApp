@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Reminder App",
-    "slug": "reminder-app",
+    "name": "Yaadgar",
+    "slug": "yaadgar",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.reminder.app",
+      "bundleIdentifier": "com.yaadgar.app",
       "deploymentTarget": "16.0",
       "infoPlist": {
         "UIBackgroundModes": [
@@ -29,7 +29,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B57D0"
       },
-      "package": "com.reminder.app",
+      "package": "com.yaadgar.app",
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",

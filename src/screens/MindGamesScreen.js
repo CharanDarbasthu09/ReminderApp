@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -32,11 +33,119 @@ const EMOJI_PUZZLES = [
   { emoji: '🧊 🧊 👶', answer: 'ICE ICE BABY', hint: 'Famous 90s song' },
 ];
 
-export default function MindGamesScreen({ isDarkMode }) {
-  // Choosable Game Tabs: 'pinpoint' | 'memory' | 'reflex' | 'emoji'
-  const [activeTab, setActiveTab] = useState('pinpoint');
+// 3. TODDLER BALLOON PALETTE
+const BALLOON_ITEMS = [
+  { id: 1, color: '#EF4444', emoji: '🐶', label: 'Doggy' },
+  { id: 2, color: '#3B82F6', emoji: '🐱', label: 'Kitty' },
+  { id: 3, color: '#10B981', emoji: '🐰', label: 'Bunny' },
+  { id: 4, color: '#F59E0B', emoji: '🐻', label: 'Teddy' },
+  { id: 5, color: '#8B5CF6', emoji: '🐼', label: 'Panda' },
+  { id: 6, color: '#EC4899', emoji: '🦁', label: 'Lion' },
+  { id: 7, color: '#06B6D4', emoji: '🐸', label: 'Froggy' },
+  { id: 8, color: '#F97316', emoji: '🦄', label: 'Unicorn' },
+];
 
-  // --- 1. PINPOINT STATE ---
+// 4. 4-YEAR-OLD KIDS QUEST PUZZLES
+const KIDS_QUESTS = [
+  {
+    target: { emoji: '🐶', name: 'Doggy' },
+    options: [
+      { emoji: '🐱', name: 'Kitty', color: '#3B82F6' },
+      { emoji: '🐶', name: 'Doggy', color: '#EF4444', isCorrect: true },
+      { emoji: '🐰', name: 'Bunny', color: '#10B981' },
+      { emoji: '🐻', name: 'Teddy', color: '#F59E0B' },
+    ],
+  },
+  {
+    target: { emoji: '🍎', name: 'Red Apple' },
+    options: [
+      { emoji: '🍌', name: 'Banana', color: '#F59E0B' },
+      { emoji: '🍎', name: 'Red Apple', color: '#EF4444', isCorrect: true },
+      { emoji: '🍇', name: 'Grapes', color: '#8B5CF6' },
+      { emoji: '🍉', name: 'Watermelon', color: '#10B981' },
+    ],
+  },
+  {
+    target: { emoji: '🦁', name: 'King Lion' },
+    options: [
+      { emoji: '🐼', name: 'Panda', color: '#64748B' },
+      { emoji: '🐘', name: 'Elephant', color: '#3B82F6' },
+      { emoji: '🦁', name: 'King Lion', color: '#F97316', isCorrect: true },
+      { emoji: '🐵', name: 'Monkey', color: '#F59E0B' },
+    ],
+  },
+  {
+    target: { emoji: '🦄', name: 'Magical Unicorn' },
+    options: [
+      { emoji: '🦄', name: 'Magical Unicorn', color: '#EC4899', isCorrect: true },
+      { emoji: '🐸', name: 'Froggy', color: '#10B981' },
+      { emoji: '🐶', name: 'Doggy', color: '#EF4444' },
+      { emoji: '🐱', name: 'Kitty', color: '#3B82F6' },
+    ],
+  },
+  {
+    target: { emoji: '🚀', name: 'Space Rocket' },
+    options: [
+      { emoji: '🚗', name: 'Car', color: '#EF4444' },
+      { emoji: '⛵', name: 'Boat', color: '#06B6D4' },
+      { emoji: '🚀', name: 'Space Rocket', color: '#8B5CF6', isCorrect: true },
+      { emoji: '✈️', name: 'Airplane', color: '#3B82F6' },
+    ],
+  },
+];
+
+// VEHICLES GARAGE
+const VEHICLE_GARAGE = [
+  { id: 'f1', emoji: '🏎️', name: 'F1 Speedster', color: '#EF4444' },
+  { id: 'monster', emoji: '🛻', name: 'Monster Truck', color: '#F59E0B' },
+  { id: 'police', emoji: '🚓', name: 'Police Cruiser', color: '#3B82F6' },
+  { id: 'rocket', emoji: '🚀', name: 'Rocket Car', color: '#8B5CF6' },
+];
+
+// RIVAL AI RACERS
+const RIVAL_AI_RACERS = [
+  { id: 'ai1', name: 'Speedy Blue', emoji: '🏎️', lane: 0 },
+  { id: 'ai2', name: 'Bumpy Orange', emoji: '🛻', lane: 2 },
+  { id: 'ai3', name: 'Turbo Police', emoji: '🚓', lane: 1 },
+];
+
+export default function MindGamesScreen({ isDarkMode }) {
+  // Choosable Game Tabs: 'racing' | 'kids_quest' | 'balloon' | 'pinpoint' | 'memory' | 'reflex' | 'emoji'
+  const [activeTab, setActiveTab] = useState('racing');
+
+  // --- 1. REAL DRIFT GRAND PRIX STATE ---
+  const [carLane, setCarLane] = useState(1); // 0: Left, 1: Center, 2: Right
+  const [raceScore, setRaceScore] = useState(0); // Distance meters
+  const [driftScore, setDriftScore] = useState(0); // Drift score
+  const [lapNumber, setLapNumber] = useState(1); // Laps 1, 2, 3
+  const [racePosition, setRacePosition] = useState(2); // 1st, 2nd, 3rd, 4th
+  const [raceStatus, setRaceStatus] = useState('idle'); // 'idle' | 'racing' | 'crashed' | 'finished'
+  const [selectedVehicle, setSelectedVehicle] = useState(VEHICLE_GARAGE[0]);
+  const [isDrifting, setIsDrifting] = useState(false);
+  const [isNitroActive, setIsNitroActive] = useState(false);
+  const [raceBanner, setRaceBanner] = useState(null);
+
+  // AI Opponents state (Row positions 0-3 on track)
+  const [aiOpponents, setAiOpponents] = useState([
+    { ...RIVAL_AI_RACERS[0], row: 0, distance: 80 },
+    { ...RIVAL_AI_RACERS[1], row: 1, distance: 40 },
+    { ...RIVAL_AI_RACERS[2], row: 2, distance: 10 },
+  ]);
+
+  const raceIntervalRef = useRef(null);
+
+  // --- 2. KIDS QUEST (4YRS) STATE ---
+  const [questIndex, setQuestIndex] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [questFeedback, setQuestFeedback] = useState(null);
+  const [isWinner, setIsWinner] = useState(false);
+
+  // --- 3. TODDLER BALLOON POP STATE ---
+  const [popScore, setPopScore] = useState(0);
+  const [poppedIds, setPoppedIds] = useState([]);
+  const [popBurstEffect, setPopBurstEffect] = useState(null);
+
+  // --- 4. PINPOINT STATE ---
   const [puzzleIndex, setPuzzleIndex] = useState(0);
   const [revealedCount, setRevealedCount] = useState(1);
   const [userGuess, setUserGuess] = useState('');
@@ -44,7 +153,7 @@ export default function MindGamesScreen({ isDarkMode }) {
   const [pinpointScore, setPinpointScore] = useState(0);
   const [pinpointStreak, setPinpointStreak] = useState(0);
 
-  // --- 2. MEMORY MATRIX STATE ---
+  // --- 5. MEMORY MATRIX STATE ---
   const [matrixSize] = useState(4);
   const [targetPattern, setTargetPattern] = useState([]);
   const [selectedTiles, setSelectedTiles] = useState([]);
@@ -52,20 +161,20 @@ export default function MindGamesScreen({ isDarkMode }) {
   const [memoryLevel, setMemoryLevel] = useState(1);
   const [memoryScore, setMemoryScore] = useState(0);
 
-  // --- 3. REFLEX TAP CHALLENGE STATE ---
-  // 'idle' | 'waiting' | 'ready' | 'finished'
+  // --- 6. REFLEX TAP CHALLENGE STATE ---
   const [reflexState, setReflexState] = useState('idle');
   const [reflexTime, setReflexTime] = useState(null);
   const [reflexRating, setReflexRating] = useState('');
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
 
-  // --- 4. EMOJI RIDDLE STATE ---
+  // --- 7. EMOJI RIDDLE STATE ---
   const [emojiIndex, setEmojiIndex] = useState(0);
   const [emojiGuess, setEmojiGuess] = useState('');
   const [emojiSolved, setEmojiSolved] = useState(false);
   const [emojiScore, setEmojiScore] = useState(0);
 
+  const currentQuest = KIDS_QUESTS[questIndex % KIDS_QUESTS.length];
   const currentPinpoint = PINPOINT_PUZZLES[puzzleIndex % PINPOINT_PUZZLES.length];
   const currentEmoji = EMOJI_PUZZLES[emojiIndex % EMOJI_PUZZLES.length];
 
@@ -79,6 +188,162 @@ export default function MindGamesScreen({ isDarkMode }) {
     border: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E1E3EA',
     clueBg: isDarkMode ? 'rgba(11, 87, 208, 0.2)' : '#E8F0FE',
     clueText: isDarkMode ? '#D3E3FD' : '#0B57D0',
+  };
+
+  // --- DRIFT GRAND PRIX GAME ENGINE ---
+  useEffect(() => {
+    if (raceStatus === 'racing') {
+      const intervalSpeed = isNitroActive ? 300 : isDrifting ? 400 : 550;
+
+      raceIntervalRef.current = setInterval(() => {
+        // Move AI Opponents along track
+        setAiOpponents((prevAi) => {
+          return prevAi.map((ai) => {
+            const nextRow = (ai.row + 1) % 4;
+            const newDist = ai.distance + (Math.random() > 0.4 ? 15 : 5);
+            // Change AI lane occasionally
+            const newLane = Math.random() > 0.8 ? (ai.lane + 1) % 3 : ai.lane;
+
+            return {
+              ...ai,
+              row: nextRow,
+              distance: newDist,
+              lane: newLane,
+            };
+          });
+        });
+
+        // Player Distance & Drift Accumulation
+        setRaceScore((prevDist) => {
+          const addedDist = isNitroActive ? 30 : isDrifting ? 20 : 15;
+          const nextDist = prevDist + addedDist;
+
+          // Lap Progression (Every 300m = 1 Lap)
+          const currentLap = Math.min(Math.floor(nextDist / 300) + 1, 3);
+          setLapNumber(currentLap);
+
+          if (nextDist >= 900) {
+            setRaceStatus('finished');
+            clearInterval(raceIntervalRef.current);
+          }
+
+          return nextDist;
+        });
+
+        if (isDrifting) {
+          setDriftScore((prev) => prev + 50);
+        }
+      }, intervalSpeed);
+    } else {
+      clearInterval(raceIntervalRef.current);
+    }
+
+    return () => clearInterval(raceIntervalRef.current);
+  }, [raceStatus, carLane, isDrifting, isNitroActive]);
+
+  // Calculate live position rank (1st to 4th) based on distance
+  useEffect(() => {
+    if (raceStatus === 'racing') {
+      let rank = 1;
+      aiOpponents.forEach((ai) => {
+        if (ai.distance > raceScore) {
+          rank += 1;
+        }
+      });
+      setRacePosition(rank);
+    }
+  }, [raceScore, aiOpponents, raceStatus]);
+
+  const triggerNitroBoost = () => {
+    setIsNitroActive(true);
+    showBanner('🚀 NITRO BOOST ACTIVE! 💥');
+    setTimeout(() => {
+      setIsNitroActive(false);
+    }, 3000);
+  };
+
+  const startDriftState = () => {
+    setIsDrifting(true);
+    showBanner('💨 HIGH-SPEED DRIFT! +50 PTS!');
+  };
+
+  const stopDriftState = () => {
+    setIsDrifting(false);
+  };
+
+  const showBanner = (text) => {
+    setRaceBanner(text);
+    setTimeout(() => setRaceBanner(null), 1200);
+  };
+
+  const startRaceGame = () => {
+    setCarLane(1);
+    setRaceScore(0);
+    setDriftScore(0);
+    setLapNumber(1);
+    setRacePosition(2);
+    setIsDrifting(false);
+    setIsNitroActive(false);
+    setAiOpponents([
+      { ...RIVAL_AI_RACERS[0], row: 0, distance: 80 },
+      { ...RIVAL_AI_RACERS[1], row: 1, distance: 40 },
+      { ...RIVAL_AI_RACERS[2], row: 2, distance: 10 },
+    ]);
+    setRaceStatus('racing');
+  };
+
+  const moveCarLeft = () => {
+    if (carLane > 0) setCarLane((prev) => prev - 1);
+  };
+
+  const moveCarRight = () => {
+    if (carLane < 2) setCarLane((prev) => prev + 1);
+  };
+
+  // --- KIDS QUEST HANDLERS ---
+  const handleOptionPress = (option) => {
+    if (option.isCorrect) {
+      const newStars = stars + 1;
+      setStars(newStars);
+      setQuestFeedback(`🌟 BINGO! Super Job! Found ${option.emoji} ${option.name}! ⭐`);
+
+      if (newStars >= 5) {
+        setTimeout(() => setIsWinner(true), 500);
+      } else {
+        setTimeout(() => {
+          setQuestIndex((prev) => prev + 1);
+          setQuestFeedback(null);
+        }, 1200);
+      }
+    } else {
+      setQuestFeedback(`Oopsie! That's ${option.emoji} ${option.name}! Find ${currentQuest.target.emoji} ${currentQuest.target.name}! 😜`);
+    }
+  };
+
+  const handleRestartKidsQuest = () => {
+    setQuestIndex(0);
+    setStars(0);
+    setIsWinner(false);
+    setQuestFeedback(null);
+  };
+
+  // --- TODDLER BALLOON POP HANDLERS ---
+  const handlePopBalloon = (item) => {
+    if (poppedIds.includes(item.id)) return;
+    setPoppedIds((prev) => [...prev, item.id]);
+    setPopScore((prev) => prev + 1);
+    setPopBurstEffect(`🎉 POP! ${item.emoji} ${item.label}!`);
+    setTimeout(() => {
+      setPoppedIds((prev) => prev.filter((id) => id !== item.id));
+      setPopBurstEffect(null);
+    }, 600);
+  };
+
+  const handleResetBalloons = () => {
+    setPoppedIds([]);
+    setPopScore(0);
+    setPopBurstEffect('🎈 All Balloons Ready!');
+    setTimeout(() => setPopBurstEffect(null), 1000);
   };
 
   // --- PINPOINT HANDLERS ---
@@ -122,9 +387,7 @@ export default function MindGamesScreen({ isDarkMode }) {
       if (!indices.includes(rand)) indices.push(rand);
     }
     setTargetPattern(indices);
-    setTimeout(() => {
-      setIsMemorizing(false);
-    }, 1800);
+    setTimeout(() => setIsMemorizing(false), 1800);
   };
 
   const handleTilePress = (index) => {
@@ -159,8 +422,7 @@ export default function MindGamesScreen({ isDarkMode }) {
     setReflexState('waiting');
     setReflexTime(null);
     setReflexRating('');
-
-    const randomDelay = Math.floor(Math.random() * 3000) + 2000; // 2-5 seconds
+    const randomDelay = Math.floor(Math.random() * 3000) + 2000;
     timerRef.current = setTimeout(() => {
       setReflexState('ready');
       startTimeRef.current = Date.now();
@@ -176,7 +438,6 @@ export default function MindGamesScreen({ isDarkMode }) {
       const elapsed = Date.now() - startTimeRef.current;
       setReflexTime(elapsed);
       setReflexState('finished');
-
       let rating = '';
       if (elapsed < 200) rating = '⚡ Lightning Reflexes! (Superhero speed)';
       else if (elapsed < 300) rating = '🚀 Super Fast! (Pro gamer level)';
@@ -191,7 +452,6 @@ export default function MindGamesScreen({ isDarkMode }) {
     if (!emojiGuess.trim()) return;
     const guessUpper = emojiGuess.trim().replaceAll(' ', '').toUpperCase();
     const ansUpper = currentEmoji.answer.replaceAll(' ', '').toUpperCase();
-
     if (guessUpper === ansUpper || ansUpper.includes(guessUpper)) {
       setEmojiSolved(true);
       setEmojiScore((prev) => prev + 50);
@@ -207,12 +467,49 @@ export default function MindGamesScreen({ isDarkMode }) {
     setEmojiSolved(false);
   };
 
+  const getRankBadgeText = (pos) => {
+    if (pos === 1) return '🥇 1st';
+    if (pos === 2) return '🥈 2nd';
+    if (pos === 3) return '🥉 3rd';
+    return '4th';
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.bg }]} contentContainerStyle={styles.content}>
       {/* Choosable Funny Games Header Bar */}
-      <Text style={[styles.gameSectionTitle, { color: colors.textPrimary }]}>Choose A Funny Game 🎮</Text>
+      <Text style={[styles.gameSectionTitle, { color: colors.textPrimary }]}>Choose A Game 🎮</Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScrollRow} contentContainerStyle={styles.tabScrollContent}>
+        <TouchableOpacity
+          style={[styles.gameTabChip, activeTab === 'racing' ? { backgroundColor: '#EF4444' } : { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+          onPress={() => setActiveTab('racing')}
+        >
+          <Ionicons name="car-sport-outline" size={16} color={activeTab === 'racing' ? '#FFFFFF' : colors.textSecondary} />
+          <Text style={[styles.gameTabText, { color: activeTab === 'racing' ? '#FFFFFF' : colors.textSecondary }]}>
+            🏎️ Drift Grand Prix
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.gameTabChip, activeTab === 'kids_quest' ? { backgroundColor: '#F59E0B' } : { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+          onPress={() => setActiveTab('kids_quest')}
+        >
+          <Ionicons name="star" size={16} color={activeTab === 'kids_quest' ? '#FFFFFF' : colors.textSecondary} />
+          <Text style={[styles.gameTabText, { color: activeTab === 'kids_quest' ? '#FFFFFF' : colors.textSecondary }]}>
+            🎨 Kids Quest (4Yrs)
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.gameTabChip, activeTab === 'balloon' ? { backgroundColor: '#EC4899' } : { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+          onPress={() => setActiveTab('balloon')}
+        >
+          <Ionicons name="balloon-outline" size={16} color={activeTab === 'balloon' ? '#FFFFFF' : colors.textSecondary} />
+          <Text style={[styles.gameTabText, { color: activeTab === 'balloon' ? '#FFFFFF' : colors.textSecondary }]}>
+            🎈 Toddler Pop (2Yrs)
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.gameTabChip, activeTab === 'pinpoint' ? { backgroundColor: colors.googleBlue } : { backgroundColor: colors.cardBg, borderColor: colors.border }]}
           onPress={() => setActiveTab('pinpoint')}
@@ -257,7 +554,276 @@ export default function MindGamesScreen({ isDarkMode }) {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* --- GAME 1: PINPOINT PUZZLE --- */}
+      {/* --- GAME 1: REAL DRIFT GRAND PRIX 🏎️💨 --- */}
+      {activeTab === 'racing' && (
+        <View style={styles.gameContainer}>
+          {/* Header Live Metrics: Rank, Lap, Drift Pts */}
+          <View style={styles.scoreRow}>
+            <View style={[styles.scoreBadge, { backgroundColor: '#EF4444', borderColor: '#EF4444' }]}>
+              <Text style={[styles.scoreText, { color: '#FFFFFF' }]}>{getRankBadgeText(racePosition)} Place</Text>
+            </View>
+
+            <View style={[styles.scoreBadge, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 16 }}>🏁</Text>
+              <Text style={[styles.scoreText, { color: colors.textPrimary }]}>Lap {lapNumber}/3</Text>
+            </View>
+
+            <View style={[styles.scoreBadge, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 16 }}>💨</Text>
+              <Text style={[styles.scoreText, { color: colors.textPrimary }]}>{driftScore} Drift</Text>
+            </View>
+          </View>
+
+          <View style={[styles.puzzleCard, { backgroundColor: '#1E293B', borderColor: colors.border, padding: 16 }]}>
+            {/* Event Toast Banner */}
+            {raceBanner && (
+              <View style={styles.raceBannerBox}>
+                <Text style={styles.raceBannerText}>{raceBanner}</Text>
+              </View>
+            )}
+
+            {/* START RACE SCREEN */}
+            {raceStatus === 'idle' && (
+              <View style={styles.raceStartContainer}>
+                <Text style={{ fontSize: 60 }}>🏁🏎️💨</Text>
+                <Text style={styles.raceStartTitle}>Real Drift Grand Prix!</Text>
+                <Text style={styles.raceStartSub}>Race 3 rival AI drivers! Drift turns 💨 & Nitro 🚀 to win 1st Place!</Text>
+
+                <Text style={styles.garageTitle}>SELECT YOUR RACING RIDE:</Text>
+                <View style={styles.garageRow}>
+                  {VEHICLE_GARAGE.map((v) => (
+                    <TouchableOpacity
+                      key={v.id}
+                      style={[
+                        styles.garageChip,
+                        selectedVehicle.id === v.id ? { backgroundColor: v.color, borderColor: '#FFFFFF', borderWidth: 2 } : { backgroundColor: 'rgba(255,255,255,0.1)' },
+                      ]}
+                      onPress={() => setSelectedVehicle(v)}
+                    >
+                      <Text style={{ fontSize: 26 }}>{v.emoji}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity style={styles.startRaceBtn} onPress={startRaceGame}>
+                  <Ionicons name="play" size={20} color="#FFFFFF" />
+                  <Text style={styles.startRaceBtnText}>Start Grand Prix!</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* RACE FINISHED / WINNER PODIUM */}
+            {raceStatus === 'finished' && (
+              <View style={styles.raceStartContainer}>
+                <Text style={{ fontSize: 64 }}>{racePosition === 1 ? '🏆' : racePosition === 2 ? '🥈' : '🥉'}</Text>
+                <Text style={[styles.raceStartTitle, racePosition === 1 && { color: '#F59E0B' }]}>
+                  {racePosition === 1 ? 'GRAND PRIX CHAMPION!' : `FINISHED ${getRankBadgeText(racePosition)} PLACE!`}
+                </Text>
+                <Text style={styles.raceStartSub}>Total Distance: {raceScore}m | Total Drift: {driftScore} Pts! 🏁</Text>
+
+                <TouchableOpacity style={styles.startRaceBtn} onPress={startRaceGame}>
+                  <Ionicons name="trophy" size={20} color="#FFFFFF" />
+                  <Text style={styles.startRaceBtnText}>Race Again 🏎️</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* DYNAMIC CIRCUIT TRACK & AI OPPONENTS */}
+            {raceStatus === 'racing' && (
+              <View style={styles.raceTrackArea}>
+                <View style={[styles.roadTrackGrid, isNitroActive && { borderColor: '#F59E0B', borderWidth: 4 }]}>
+                  {[0, 1, 2, 3].map((rowIndex) => (
+                    <View key={rowIndex} style={styles.roadRow}>
+                      {[0, 1, 2].map((laneIndex) => {
+                        // Check if AI Racer is in this grid cell
+                        const aiHere = aiOpponents.find((ai) => ai.row === rowIndex && ai.lane === laneIndex);
+                        const isPlayerHere = rowIndex === 3 && carLane === laneIndex;
+
+                        return (
+                          <TouchableOpacity
+                            key={laneIndex}
+                            style={[
+                              styles.laneCell,
+                              laneIndex === 1 && styles.middleLaneBorder,
+                            ]}
+                            onPress={() => setCarLane(laneIndex)}
+                          >
+                            {/* Rival AI Racer Emoji */}
+                            {aiHere && !isPlayerHere && (
+                              <View style={styles.aiCarBadge}>
+                                <Text style={styles.trackEmojiItem}>{aiHere.emoji}</Text>
+                                <Text style={styles.aiLabelText}>{aiHere.name}</Text>
+                              </View>
+                            )}
+
+                            {/* Player Car Emoji with Tire Drift Smoke Effect */}
+                            {isPlayerHere && (
+                              <View style={styles.playerCarContainer}>
+                                {isDrifting && <Text style={styles.driftSmokeEmoji}>💨</Text>}
+                                <Text style={[styles.playerCarEmoji, isDrifting && { transform: [{ rotate: '-25deg' }] }]}>
+                                  {isNitroActive ? '🔥' + selectedVehicle.emoji : selectedVehicle.emoji}
+                                </Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+
+                {/* Real Drift Controls Row: Left, DRIFT, NITRO, Right */}
+                <View style={styles.steeringControlsRow}>
+                  <TouchableOpacity style={styles.steerBtn} onPress={moveCarLeft}>
+                    <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                    <Text style={styles.steerBtnText}>LEFT</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[styles.driftControlBtn, isDrifting && { backgroundColor: '#F59E0B' }]}
+                    onPressIn={startDriftState}
+                    onPressOut={stopDriftState}
+                  >
+                    <Text style={styles.driftBtnText}>💨 DRIFT</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.nitroBoostBtn, isNitroActive && { backgroundColor: '#F59E0B' }]}
+                    onPress={triggerNitroBoost}
+                    disabled={isNitroActive}
+                  >
+                    <Text style={styles.nitroBtnText}>🚀 NITRO</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.steerBtn} onPress={moveCarRight}>
+                    <Text style={styles.steerBtnText}>RIGHT</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* --- GAME 2: KIDS SAFARI QUEST (4 YEARS OLD) 🎨 --- */}
+      {activeTab === 'kids_quest' && (
+        <View style={styles.gameContainer}>
+          <View style={styles.scoreRow}>
+            <View style={[styles.scoreBadge, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+              <Ionicons name="star" size={20} color="#F59E0B" />
+              <Text style={[styles.scoreText, { color: colors.textPrimary }]}>{stars} / 5 Stars</Text>
+            </View>
+
+            <TouchableOpacity style={[styles.scoreBadge, { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }]} onPress={handleRestartKidsQuest}>
+              <Ionicons name="refresh" size={18} color="#FFFFFF" />
+              <Text style={[styles.scoreText, { color: '#FFFFFF' }]}>Restart Quest</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.puzzleCard, { backgroundColor: colors.cardBg, borderColor: colors.border, paddingVertical: 24 }]}>
+            {!isWinner ? (
+              <>
+                <View style={styles.questTargetBox}>
+                  <Text style={styles.questTargetTitle}>Find the {currentQuest.target.name}! 👇</Text>
+                  <Text style={styles.questTargetEmoji}>{currentQuest.target.emoji}</Text>
+                </View>
+
+                {questFeedback && (
+                  <View style={styles.questFeedbackBox}>
+                    <Text style={styles.questFeedbackText}>{questFeedback}</Text>
+                  </View>
+                )}
+
+                <View style={styles.questOptionsGrid}>
+                  {currentQuest.options.map((opt, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      activeOpacity={0.8}
+                      style={[styles.questOptionCard, { backgroundColor: opt.color }]}
+                      onPress={() => handleOptionPress(opt)}
+                    >
+                      <Text style={styles.questOptionEmoji}>{opt.emoji}</Text>
+                      <Text style={styles.questOptionName}>{opt.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <View style={styles.winnerContainer}>
+                <Text style={{ fontSize: 64 }}>🏆</Text>
+                <Text style={styles.winnerTitle}>SUPERSTAR WINNER! 🎉</Text>
+                <Text style={styles.winnerSub}>You collected all 5 Stars! ⭐⭐⭐⭐⭐</Text>
+                <TouchableOpacity style={styles.playAgainBtn} onPress={handleRestartKidsQuest}>
+                  <Ionicons name="trophy" size={20} color="#FFFFFF" />
+                  <Text style={styles.playAgainText}>Play Again!</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* --- GAME 3: TODDLER BALLOON POP 🎈 --- */}
+      {activeTab === 'balloon' && (
+        <View style={styles.gameContainer}>
+          <View style={styles.scoreRow}>
+            <View style={[styles.scoreBadge, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 20 }}>🎈</Text>
+              <Text style={[styles.scoreText, { color: colors.textPrimary }]}>{popScore} Popped!</Text>
+            </View>
+
+            <TouchableOpacity style={[styles.scoreBadge, { backgroundColor: '#EC4899', borderColor: '#EC4899' }]} onPress={handleResetBalloons}>
+              <Ionicons name="refresh-circle" size={20} color="#FFFFFF" />
+              <Text style={[styles.scoreText, { color: '#FFFFFF' }]}>Reset Game</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.puzzleCard, { backgroundColor: colors.cardBg, borderColor: colors.border, paddingVertical: 24 }]}>
+            <Text style={[styles.toddlerHeader, { color: colors.textPrimary }]}>
+              🎈 Tap Any Balloon to Pop It! 🎉
+            </Text>
+            <Text style={[styles.puzzleInstruction, { color: colors.textSecondary }]}>
+              Super easy & colorful fun designed for 2-year-olds!
+            </Text>
+
+            {popBurstEffect && (
+              <View style={styles.popToastBox}>
+                <Text style={styles.popToastText}>{popBurstEffect}</Text>
+              </View>
+            )}
+
+            <View style={styles.balloonGridContainer}>
+              {BALLOON_ITEMS.map((b) => {
+                const isPopped = poppedIds.includes(b.id);
+                return (
+                  <TouchableOpacity
+                    key={b.id}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.balloonTouchTarget,
+                      { backgroundColor: isPopped ? 'rgba(0,0,0,0.04)' : b.color },
+                    ]}
+                    onPress={() => handlePopBalloon(b)}
+                  >
+                    {!isPopped ? (
+                      <View style={styles.balloonContentCol}>
+                        <Text style={styles.balloonEmoji}>{b.emoji}</Text>
+                        <Text style={styles.balloonText}>🎈 {b.label}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.poppedBurstText}>💥 POP!</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* --- GAME 4: PINPOINT PUZZLE --- */}
       {activeTab === 'pinpoint' && (
         <View style={styles.gameContainer}>
           <View style={styles.scoreRow}>
@@ -334,7 +900,7 @@ export default function MindGamesScreen({ isDarkMode }) {
         </View>
       )}
 
-      {/* --- GAME 2: MEMORY MATRIX --- */}
+      {/* --- GAME 5: MEMORY MATRIX --- */}
       {activeTab === 'memory' && (
         <View style={styles.gameContainer}>
           <View style={styles.scoreRow}>
@@ -388,7 +954,7 @@ export default function MindGamesScreen({ isDarkMode }) {
         </View>
       )}
 
-      {/* --- GAME 3: REFLEX TAP CHALLENGE --- */}
+      {/* --- GAME 6: REFLEX TAP CHALLENGE --- */}
       {activeTab === 'reflex' && (
         <View style={styles.gameContainer}>
           <View style={[styles.puzzleCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
@@ -434,7 +1000,7 @@ export default function MindGamesScreen({ isDarkMode }) {
         </View>
       )}
 
-      {/* --- GAME 4: EMOJI RIDDLE QUIZ --- */}
+      {/* --- GAME 7: EMOJI RIDDLE QUIZ --- */}
       {activeTab === 'emoji' && (
         <View style={styles.gameContainer}>
           <View style={styles.scoreRow}>
@@ -538,6 +1104,339 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     alignItems: 'center',
+  },
+  raceBannerBox: {
+    backgroundColor: '#FEF08A',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+  },
+  raceBannerText: {
+    color: '#1F2937',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  raceStartContainer: {
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  raceStartTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginVertical: 4,
+    fontFamily,
+  },
+  raceStartSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  garageTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#3B82F6',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  garageRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 18,
+  },
+  garageChip: {
+    padding: 10,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startRaceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 26,
+    paddingVertical: 12,
+    borderRadius: 18,
+    gap: 8,
+    elevation: 4,
+  },
+  startRaceBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  raceTrackArea: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  roadTrackGrid: {
+    width: '100%',
+    height: 270,
+    backgroundColor: '#0F172A',
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: '#334155',
+    overflow: 'hidden',
+  },
+  roadRow: {
+    flex: 1,
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  laneCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  middleLaneBorder: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderStyle: 'dashed',
+  },
+  aiCarBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiLabelText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  trackEmojiItem: {
+    fontSize: 30,
+  },
+  playerCarContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  playerCarEmoji: {
+    fontSize: 36,
+  },
+  driftSmokeEmoji: {
+    position: 'absolute',
+    left: -18,
+    fontSize: 20,
+  },
+  steeringControlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 14,
+    gap: 6,
+  },
+  steerBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3B82F6',
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 2,
+    elevation: 3,
+  },
+  steerBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 11,
+  },
+  driftControlBtn: {
+    flex: 1.1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF6',
+    paddingVertical: 12,
+    borderRadius: 14,
+    elevation: 4,
+  },
+  driftBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  nitroBoostBtn: {
+    flex: 1.1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EF4444',
+    paddingVertical: 12,
+    borderRadius: 14,
+    elevation: 4,
+  },
+  nitroBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  questTargetBox: {
+    backgroundColor: '#FEF08A',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 24,
+    alignItems: 'center',
+    marginBottom: 14,
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    width: '100%',
+  },
+  questTargetTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1F2937',
+    marginBottom: 4,
+    textAlign: 'center',
+    fontFamily,
+  },
+  questTargetEmoji: {
+    fontSize: 50,
+  },
+  questFeedbackBox: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#0284C7',
+  },
+  questFeedbackText: {
+    color: '#0369A1',
+    fontWeight: '800',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  questOptionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    width: '100%',
+  },
+  questOptionCard: {
+    width: '47%',
+    height: 110,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  questOptionEmoji: {
+    fontSize: 38,
+  },
+  questOptionName: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+    marginTop: 4,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  winnerContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  winnerTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#F59E0B',
+    marginVertical: 6,
+    fontFamily,
+  },
+  winnerSub: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#10B981',
+    marginBottom: 16,
+  },
+  playAgainBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 18,
+    gap: 8,
+  },
+  playAgainText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  toddlerHeader: {
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 4,
+    textAlign: 'center',
+    fontFamily,
+  },
+  popToastBox: {
+    backgroundColor: '#FEF08A',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginVertical: 10,
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+  },
+  popToastText: {
+    color: '#1F2937',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  balloonGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 14,
+    width: '100%',
+  },
+  balloonTouchTarget: {
+    width: '47%',
+    height: 100,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  balloonContentCol: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  balloonEmoji: {
+    fontSize: 34,
+  },
+  balloonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
+    marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  poppedBurstText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#EF4444',
   },
   puzzleInstruction: { fontSize: 14, fontWeight: '600', marginBottom: 16, textAlign: 'center', fontFamily },
   cluesContainer: { width: '100%', marginBottom: 16 },
