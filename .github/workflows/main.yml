@@ -54,7 +54,11 @@ jobs:
                      CODE_SIGNING_ALLOWED=YES \
                      DEVELOPMENT_TEAM="" \
                      PROVISIONING_PROFILE_SPECIFIER="" \
-                     build
+                     build 2>&1 | tee build.log || {
+                       echo "=== EXACT XCODE ERROR LINES ==="
+                       grep -B 2 -A 5 -i "error:" build.log | tail -n 50
+                       exit 1
+                     }
 
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/*.app Payload/
