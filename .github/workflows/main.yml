@@ -26,6 +26,10 @@ jobs:
       - name: Prebuild Native iOS Project
         run: npx expo prebuild --platform ios --no-install
 
+      - name: Set iOS 15.0 Deployment Target in Podfile
+        run: |
+          sed -i '' "s/platform :ios, .*/platform :ios, '15.0'/g" ios/Podfile || true
+
       - name: Pod Install
         run: |
           cd ios
@@ -39,6 +43,7 @@ jobs:
                      -configuration Release \
                      -destination 'generic/platform=iOS' \
                      -derivedDataPath build \
+                     IPHONEOS_DEPLOYMENT_TARGET=15.0 \
                      CODE_SIGN_IDENTITY="" \
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGNING_ALLOWED=NO \
