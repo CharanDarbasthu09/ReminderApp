@@ -14,7 +14,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.reminder.app",
-      "deploymentTarget": "15.0",
+      "deploymentTarget": "16.0",
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
