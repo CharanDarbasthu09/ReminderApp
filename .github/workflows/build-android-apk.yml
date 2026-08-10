@@ -2,7 +2,7 @@ name: Build Android APK and Google Play AAB
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "*" ]
   workflow_dispatch:
 
 jobs:
