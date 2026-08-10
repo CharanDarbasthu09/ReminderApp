@@ -26,26 +26,9 @@ jobs:
       - name: Prebuild Native iOS Project
         run: npx expo prebuild --platform ios --no-install
 
-      - name: Bundle React Native Code
+      - name: Set iOS 16.0 Deployment Target in Podfile
         run: |
-          mkdir -p ios/ReminderApp
-          npx react-native bundle --platform ios --dev false --entry-file node_modules/expo/AppEntry.js --bundle-output ios/ReminderApp/main.jsbundle --assets-dest ios/ReminderApp || true
-
-      - name: Configure Podfile for Unsigned Physical Build
-        run: |
-          cat << 'EOF' >> ios/Podfile
-
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    target.build_configurations.each do |config|
-      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-      config.build_settings['CODE_SIGN_IDENTITY'] = ''
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
-    end
-  end
-end
-EOF
+          sed -i '' "s/platform :ios, .*/platform :ios, '16.0'/g" ios/Podfile || true
 
       - name: Pod Install
         run: |
@@ -61,9 +44,9 @@ EOF
                      -destination 'generic/platform=iOS' \
                      -derivedDataPath build \
                      IPHONEOS_DEPLOYMENT_TARGET=16.0 \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO \
                      build
 
           mkdir -p Payload
