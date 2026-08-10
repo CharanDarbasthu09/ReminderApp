@@ -14,6 +14,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.reminder.app",
+      "deploymentTarget": "15.0",
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
@@ -49,11 +50,6 @@
           "sounds": []
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "e8a59f68-4807-4678-996f-8fa16dee42ec"
-      }
-    }
+    ]
   }
 }
