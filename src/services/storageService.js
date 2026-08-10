@@ -7,6 +7,7 @@ import {
 const REMINDERS_KEY = '@checkin_checkout_reminders_v3';
 const HISTORY_KEY = '@checkin_checkout_history_v3';
 const CATEGORY_STYLES_KEY = '@checkin_category_styles_v1';
+const STICKY_NOTES_KEY = '@checkin_sticky_notes_v1';
 
 export const DEFAULT_CATEGORY_STYLES = {
   'Check-In': { color: '#10B981', icon: 'log-in-outline' },
@@ -61,6 +62,27 @@ const DEFAULT_REMINDERS = [
     isEnabled: true,
     note: 'Join Zoom standup link',
     notificationIds: [],
+  },
+];
+
+const DEFAULT_STICKY_NOTES = [
+  {
+    id: 'note_1',
+    title: '💡 Quick Idea',
+    content: 'Review sprint deliverables and update the check-in reminder app!',
+    color: '#FEF08A', // Yellow
+    isPinned: true,
+    tag: 'Work',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'note_2',
+    title: '🛒 Shopping List',
+    content: '• Coffee beans\n• Almond milk\n• Fresh fruit',
+    color: '#BAF7D0', // Mint
+    isPinned: false,
+    tag: 'Personal',
+    createdAt: new Date().toISOString(),
   },
 ];
 
@@ -152,5 +174,28 @@ export const logCheckActivity = async (reminder) => {
   } catch (e) {
     console.error('Error logging activity', e);
     return [];
+  }
+};
+
+export const getStoredStickyNotes = async () => {
+  try {
+    const jsonValue = await AsyncStorage.getItem(STICKY_NOTES_KEY);
+    if (jsonValue != null) {
+      return JSON.parse(jsonValue);
+    }
+    await AsyncStorage.setItem(STICKY_NOTES_KEY, JSON.stringify(DEFAULT_STICKY_NOTES));
+    return DEFAULT_STICKY_NOTES;
+  } catch (e) {
+    return DEFAULT_STICKY_NOTES;
+  }
+};
+
+export const saveStickyNotesList = async (notes) => {
+  try {
+    await AsyncStorage.setItem(STICKY_NOTES_KEY, JSON.stringify(notes));
+    return notes;
+  } catch (e) {
+    console.error('Error saving sticky notes', e);
+    return notes;
   }
 };

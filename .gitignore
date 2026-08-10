@@ -3,3 +3,9 @@ node_modules/
 dist/
 npm-debug.*
 *.log
+
+Payload/
+*.ipa
+*.tar.gz
+*.apk
+web-build/

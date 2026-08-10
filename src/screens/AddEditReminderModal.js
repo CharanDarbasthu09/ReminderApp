@@ -8,9 +8,9 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DesignerCalendar from '../components/DesignerCalendar';
 import {
   saveRemindersList,
   getStoredCategoryStyles,
@@ -59,7 +59,15 @@ const DAYS_LIST = [
 ];
 
 export default function AddEditReminderModal({ visible, onClose, reminder, reminders, setReminders, isDarkMode }) {
-  const isEditing = !!reminder;
+  const isEditing = !!reminder && !!reminder.id;
+
+  const getTodayStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
   const [type, setType] = useState('Check-In');
   const [title, setTitle] = useState('');
@@ -72,6 +80,10 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
   const [hourText, setHourText] = useState('3');
   const [minuteText, setMinuteText] = useState('10');
   const [isPm, setIsPm] = useState(true);
+
+  // Alarm Schedule Mode: 'weekly' (Recurring Days) vs 'date' (Specific Date)
+  const [repeatType, setRepeatType] = useState('weekly');
+  const [targetDate, setTargetDate] = useState(getTodayStr());
   const [selectedDays, setSelectedDays] = useState([2, 3, 4, 5, 6]);
   const [note, setNote] = useState('');
 
@@ -103,6 +115,9 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
       setIsPm(h24 >= 12);
       setMinute(m);
       setMinuteText(m.toString().padStart(2, '0'));
+
+      setRepeatType(reminder.repeatType || (reminder.targetDate ? 'date' : 'weekly'));
+      setTargetDate(reminder.targetDate || getTodayStr());
       setSelectedDays(reminder.days || [2, 3, 4, 5, 6]);
       setNote(reminder.note || '');
       setIsExpanded(false);
@@ -110,7 +125,7 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
       const cat = 'Check-In';
       const style = globalStyles[cat] || { color: '#10B981', icon: 'log-in-outline' };
       setType(cat);
-      setTitle('Morning Work Check-In');
+      setTitle('Work Check-In');
       setLabel('Work');
       setColor(style.color);
       setIcon(style.icon);
@@ -124,6 +139,9 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
       setIsPm(h24 >= 12);
       setMinute(m);
       setMinuteText(m.toString().padStart(2, '0'));
+
+      setRepeatType('weekly');
+      setTargetDate(getTodayStr());
       setSelectedDays([2, 3, 4, 5, 6]);
       setNote('');
       setIsExpanded(false);
@@ -160,19 +178,22 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
       Alert.alert('Error', 'Please enter a title');
       return;
     }
-    if (selectedDays.length === 0) {
-      Alert.alert('Error', 'Please select at least one day');
+    if (repeatType === 'weekly' && selectedDays.length === 0) {
+      Alert.alert('Error', 'Please select at least one day for weekly recurring alarm');
+      return;
+    }
+    if (repeatType === 'date' && !targetDate) {
+      Alert.alert('Error', 'Please select a target date from the calendar');
       return;
     }
 
     const calculatedHour = get24Hour();
     const finalType = type.trim() || 'Custom';
 
-    // Save global style for this category so ALL alarms of this category share the same color & icon!
     await saveCategoryStyleGlobal(finalType, { color, icon });
 
     const newReminder = {
-      id: reminder ? reminder.id : Date.now().toString(),
+      id: reminder && reminder.id ? reminder.id : Date.now().toString(),
       title: title.trim(),
       label: label.trim() || 'General',
       type: finalType,
@@ -181,13 +202,14 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
       snoozeMinutes,
       hour: calculatedHour,
       minute,
+      repeatType,
+      targetDate: repeatType === 'date' ? targetDate : null,
       days: selectedDays,
       isEnabled: reminder ? reminder.isEnabled : true,
       note: note.trim() || null,
       notificationIds: reminder ? reminder.notificationIds || [] : [],
     };
 
-    // Update current reminder + apply global category style to all other alarms matching this category!
     let updatedList = [];
     if (isEditing) {
       updatedList = reminders.map((r) => {
@@ -203,33 +225,47 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
     const saved = await saveRemindersList(updatedList);
     setReminders(saved);
 
-    // Calculate time remaining until alarm triggers
+    // Time remaining text calculation
     const now = new Date();
-    let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), calculatedHour, minute, 0);
-    if (target.getTime() <= now.getTime()) {
-      target.setDate(target.getDate() + 1);
-    }
-    const diffMs = target.getTime() - now.getTime();
-    const totalMinutes = Math.round(diffMs / (1000 * 60));
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
+    let target = new Date();
 
-    let timeRemainingText = '';
-    if (hours === 0 && mins === 0) {
-      timeRemainingText = 'less than a minute';
-    } else if (hours === 0) {
-      timeRemainingText = `${mins} minute${mins > 1 ? 's' : ''}`;
-    } else if (mins === 0) {
-      timeRemainingText = `${hours} hour${hours > 1 ? 's' : ''}`;
+    if (repeatType === 'date' && targetDate) {
+      const [y, m, d] = targetDate.split('-').map(Number);
+      target = new Date(y, m - 1, d, calculatedHour, minute, 0);
     } else {
-      timeRemainingText = `${hours} hour${hours > 1 ? 's' : ''} and ${mins} minute${mins > 1 ? 's' : ''}`;
+      target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), calculatedHour, minute, 0);
+      if (target.getTime() <= now.getTime()) {
+        target.setDate(target.getDate() + 1);
+      }
+    }
+
+    const diffMs = target.getTime() - now.getTime();
+    let timeRemainingText = '';
+
+    if (diffMs <= 0) {
+      timeRemainingText = 'immediately';
+    } else {
+      const totalMinutes = Math.round(diffMs / (1000 * 60));
+      const days = Math.floor(totalMinutes / (60 * 24));
+      const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+      const mins = totalMinutes % 60;
+
+      if (days > 0) {
+        timeRemainingText = `${days} day${days > 1 ? 's' : ''} and ${hours} hr${hours > 1 ? 's' : ''}`;
+      } else if (hours > 0) {
+        timeRemainingText = `${hours} hr${hours > 1 ? 's' : ''} and ${mins} min${mins > 1 ? 's' : ''}`;
+      } else {
+        timeRemainingText = `${mins} min${mins > 1 ? 's' : ''}`;
+      }
     }
 
     onClose();
 
     Alert.alert(
       'Alarm Set! ⏰',
-      `Alarm will ring in ${timeRemainingText} from now.`
+      repeatType === 'date'
+        ? `Alarm scheduled for ${targetDate} (${timeRemainingText} from now).`
+        : `Alarm will ring in ${timeRemainingText} from now.`
     );
   };
 
@@ -296,7 +332,7 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
             <Text style={[styles.timeDisplay, { color }]}>{formatTimeDisplay()}</Text>
 
             <View style={styles.timeAdjusters}>
-              {/* Hour Controls: [-] [Input] [+] */}
+              {/* Hour Controls */}
               <View style={styles.adjustCol}>
                 <Text style={[styles.adjustLabel, { color: colors.subText }]}>HOUR</Text>
                 <View style={styles.adjustBtns}>
@@ -324,19 +360,6 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
                         setHour12(num);
                       }
                     }}
-                    onBlur={() => {
-                      const num = parseInt(hourText, 10);
-                      if (isNaN(num) || num < 1) {
-                        setHour12(1);
-                        setHourText('1');
-                      } else if (num > 12) {
-                        setHour12(12);
-                        setHourText('12');
-                      } else {
-                        setHour12(num);
-                        setHourText(num.toString());
-                      }
-                    }}
                     keyboardType="number-pad"
                     maxLength={2}
                     selectTextOnFocus
@@ -355,7 +378,7 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
                 </View>
               </View>
 
-              {/* Minute Controls: [-] [Input] [+] */}
+              {/* Minute Controls */}
               <View style={styles.adjustCol}>
                 <Text style={[styles.adjustLabel, { color: colors.subText }]}>MINUTE</Text>
                 <View style={styles.adjustBtns}>
@@ -381,19 +404,6 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
                       const num = parseInt(val, 10);
                       if (!isNaN(num) && num >= 0 && num <= 59) {
                         setMinute(num);
-                      }
-                    }}
-                    onBlur={() => {
-                      const num = parseInt(minuteText, 10);
-                      if (isNaN(num) || num < 0) {
-                        setMinute(0);
-                        setMinuteText('00');
-                      } else if (num > 59) {
-                        setMinute(59);
-                        setMinuteText('59');
-                      } else {
-                        setMinute(num);
-                        setMinuteText(num.toString().padStart(2, '0'));
                       }
                     }}
                     keyboardType="number-pad"
@@ -435,6 +445,88 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
             </View>
           </View>
 
+          {/* Alarm Repeat Mode Selector: Recurring vs Specific Date */}
+          <Text style={[styles.sectionLabel, { color: colors.subText }]}>SCHEDULE TYPE</Text>
+          <View style={styles.scheduleTypeRow}>
+            <TouchableOpacity
+              style={[
+                styles.scheduleTypeBtn,
+                repeatType === 'weekly' ? { backgroundColor: color } : { backgroundColor: colors.chipBg },
+              ]}
+              onPress={() => setRepeatType('weekly')}
+            >
+              <Ionicons
+                name="repeat-outline"
+                size={16}
+                color={repeatType === 'weekly' ? '#FFFFFF' : colors.chipText}
+              />
+              <Text
+                style={[
+                  styles.scheduleTypeText,
+                  { color: repeatType === 'weekly' ? '#FFFFFF' : colors.chipText },
+                ]}
+              >
+                Weekly Recurring
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.scheduleTypeBtn,
+                repeatType === 'date' ? { backgroundColor: color } : { backgroundColor: colors.chipBg },
+              ]}
+              onPress={() => setRepeatType('date')}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={16}
+                color={repeatType === 'date' ? '#FFFFFF' : colors.chipText}
+              />
+              <Text
+                style={[
+                  styles.scheduleTypeText,
+                  { color: repeatType === 'date' ? '#FFFFFF' : colors.chipText },
+                ]}
+              >
+                Specific Date
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Render Designer Calendar if Specific Date, else Weekly Day circles */}
+          {repeatType === 'date' ? (
+            <View style={styles.calendarSection}>
+              <Text style={[styles.sectionLabel, { color: colors.subText }]}>TARGET DATE</Text>
+              <DesignerCalendar
+                selectedDateStr={targetDate}
+                onSelectDate={setTargetDate}
+                accentColor={color}
+                isDarkMode={isDarkMode}
+                compact
+              />
+            </View>
+          ) : (
+            <View style={styles.weeklyDaysSection}>
+              <Text style={[styles.sectionLabel, { color: colors.subText }]}>REPEAT DAYS</Text>
+              <View style={styles.daysContainer}>
+                {DAYS_LIST.map((item) => {
+                  const isSelected = selectedDays.includes(item.id);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.dayCircle, { backgroundColor: isSelected ? color : colors.dayBg }]}
+                      onPress={() => toggleDay(item.id)}
+                    >
+                      <Text style={[styles.dayText, { color: isSelected ? '#FFFFFF' : colors.chipText }]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
           {/* Alarm Name */}
           <Text style={[styles.sectionLabel, { color: colors.subText }]}>ALARM NAME</Text>
           <TextInput
@@ -442,7 +534,7 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
             value={title}
             onChangeText={setTitle}
             placeholderTextColor={colors.subText}
-            placeholder="e.g. Work Check-In, Take Medicine"
+            placeholder="e.g. Doctor Appointment, Check-In"
           />
 
           {/* Category */}
@@ -476,7 +568,7 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
             <View style={styles.accordionLeft}>
               <Ionicons name="options-outline" size={18} color={colors.subText} />
               <Text style={[styles.accordionTitle, { color: colors.titleText }]}>
-                {isExpanded ? 'Hide Extra Options' : 'More Options (Days, Color, Snooze, Label)'}
+                {isExpanded ? 'Hide Extra Options' : 'More Options (Color, Snooze, Label, Notes)'}
               </Text>
             </View>
             <Ionicons
@@ -508,24 +600,6 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
                     </Text>
                   </TouchableOpacity>
                 ))}
-              </View>
-
-              <Text style={[styles.sectionLabel, { color: colors.subText }]}>REPEAT DAYS</Text>
-              <View style={styles.daysContainer}>
-                {DAYS_LIST.map((item) => {
-                  const isSelected = selectedDays.includes(item.id);
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.dayCircle, { backgroundColor: isSelected ? color : colors.dayBg }]}
-                      onPress={() => toggleDay(item.id)}
-                    >
-                      <Text style={[styles.dayText, { color: isSelected ? '#FFFFFF' : colors.chipText }]}>
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
               </View>
 
               <Text style={[styles.sectionLabel, { color: colors.subText }]}>SNOOZE DURATION</Text>
@@ -599,6 +673,7 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
 
           {isEditing && (
             <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={18} color="#EF4444" />
               <Text style={styles.deleteBtnText}>Delete Alarm</Text>
             </TouchableOpacity>
           )}
@@ -608,105 +683,256 @@ export default function AddEditReminderModal({ visible, onClose, reminder, remin
   );
 }
 
-const fontFamily = Platform.select({ ios: 'System', android: 'sans-serif-medium' });
-
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', fontFamily },
-  closeBtn: { padding: 4 },
-  content: { padding: 16, paddingBottom: 50 },
-  sectionLabel: { fontSize: 11, fontWeight: '700', marginTop: 14, marginBottom: 6, letterSpacing: 0.5, fontFamily },
-  input: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    fontSize: 14,
-    fontWeight: '500',
-    fontFamily,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
   },
-  presetsRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
-  presetChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 6, marginBottom: 6 },
-  presetText: { fontSize: 12, fontWeight: '500', fontFamily },
+  closeBtn: {
+    padding: 4,
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  timeCard: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  timeDisplay: {
+    fontSize: 36,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  timeAdjusters: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 2,
+  },
+  adjustCol: {
+    alignItems: 'center',
+  },
+  adjustLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  adjustBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  adjBtn: {
+    width: 26,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adjValInput: {
+    width: 36,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    textAlign: 'center',
+    fontWeight: '700',
+    fontSize: 15,
+    paddingHorizontal: 0,
+  },
+  amPmContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+    padding: 2,
+  },
+  amPmBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  amPmText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  scheduleTypeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+  },
+  scheduleTypeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 14,
+    gap: 6,
+  },
+  scheduleTypeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  calendarSection: {
+    marginTop: 4,
+  },
+  weeklyDaysSection: {
+    marginTop: 4,
+  },
+  input: {
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    fontSize: 15,
+  },
+  presetsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  presetChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  presetText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   accordionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
     marginTop: 18,
   },
-  accordionLeft: { flexDirection: 'row', alignItems: 'center' },
-  accordionTitle: { fontSize: 13, fontWeight: '600', marginLeft: 8, fontFamily },
-  collapsibleBox: {
-    borderRadius: 18,
-    padding: 12,
-    marginTop: 8,
-    borderWidth: 1,
+  accordionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  colorRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 6 },
-  colorCircle: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
-  colorCircleActive: { borderWidth: 2.5, borderColor: '#FFFFFF' },
-  iconRow: { flexDirection: 'row', flexWrap: 'wrap', marginVertical: 6 },
+  accordionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  collapsibleBox: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  daysContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dayCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  colorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  colorCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colorCircleActive: {
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
   iconBox: {
     width: 42,
     height: 42,
     borderRadius: 12,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-  },
-  timeCard: {
-    borderRadius: 24,
-    padding: 16,
     borderWidth: 1.5,
-    alignItems: 'center',
   },
-  timeDisplay: { fontSize: 32, fontWeight: '700', textAlign: 'center', letterSpacing: -0.5, fontFamily },
-  timeAdjusters: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 12 },
-  adjustCol: { alignItems: 'center' },
-  adjustLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, fontFamily },
-  adjustBtns: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  adjBtn: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  adjValInput: {
-    width: 46,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '800',
-    marginHorizontal: 4,
-    padding: 0,
-    fontFamily,
-  },
-  amPmContainer: { flexDirection: 'row', marginTop: 4, borderRadius: 8, padding: 2 },
-  amPmBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
-  amPmText: { fontSize: 12, fontWeight: '600', fontFamily },
-  daysContainer: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 6 },
-  dayCircle: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
-  dayText: { fontSize: 12, fontWeight: '600', fontFamily },
   testBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
     borderWidth: 1.5,
-    paddingVertical: 12,
-    borderRadius: 16,
-    marginTop: 18,
+    marginTop: 20,
+    gap: 8,
   },
-  testBtnText: { fontWeight: '600', fontSize: 13, marginLeft: 6, fontFamily },
-  saveBtn: { paddingVertical: 16, borderRadius: 20, marginTop: 12, alignItems: 'center' },
-  saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15, fontFamily },
-  deleteBtn: { marginTop: 10, alignItems: 'center', paddingVertical: 10 },
-  deleteBtnText: { color: '#EA4335', fontWeight: '600', fontSize: 13, fontFamily },
+  testBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  saveBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginTop: 14,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  saveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginTop: 10,
+    gap: 6,
+  },
+  deleteBtnText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });

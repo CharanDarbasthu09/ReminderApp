@@ -1,0 +1,55 @@
+name: Build Android APK and Google Play AAB
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Prebuild Native Android Project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Make Gradle Executable
+        run: chmod +x android/gradlew
+
+      - name: Build Android APK
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Build Play Store AAB
+        run: |
+          cd android
+          ./gradlew bundleRelease --no-daemon
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReminderApp-Release.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload Play Store AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReminderApp-PlayStore.aab
+          path: android/app/build/outputs/bundle/release/app-release.aab

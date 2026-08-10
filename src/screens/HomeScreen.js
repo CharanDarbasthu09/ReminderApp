@@ -61,12 +61,12 @@ export default function HomeScreen({
     }
   }, [quote]);
 
-  const startMarqueeAnimation = () => {
-    translateX.setValue(SCREEN_WIDTH - 40);
+  const startMarqueeAnimation = (targetWidth = 1400) => {
+    translateX.setValue(SCREEN_WIDTH - 20);
     Animated.loop(
       Animated.timing(translateX, {
-        toValue: -550,
-        duration: 14000,
+        toValue: -targetWidth,
+        duration: 18000,
         easing: Easing.linear,
         useNativeDriver: true,
       })
@@ -98,25 +98,23 @@ export default function HomeScreen({
 
   const formatTime = (hour, minute) => {
     const period = hour >= 12 ? 'PM' : 'AM';
-    const formattedHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const formattedMin = minute.toString().padStart(2, '0');
-    return `${formattedHour}:${formattedMin} ${period}`;
+    const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const m = minute.toString().padStart(2, '0');
+    return `${h12}:${m} ${period}`;
   };
 
   const getThemeIcon = () => {
-    if (themeMode === 'dark') return 'moon-outline';
-    if (themeMode === 'light') return 'sunny-outline';
-    return 'phone-portrait-outline';
+    if (themeMode === 'system') return 'laptop-outline';
+    if (themeMode === 'dark') return 'moon';
+    return 'sunny';
   };
 
   const colors = {
-    bg: isDarkMode ? '#0F172A' : '#F8FAFC',
-    surfaceCard: isDarkMode ? '#1E293B' : '#FFFFFF',
-    textPrimary: isDarkMode ? '#F8FAFC' : '#0F172A',
-    textSecondary: isDarkMode ? '#94A3B8' : '#64748B',
-    borderOff: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
+    bg: isDarkMode ? '#111318' : '#F0F4F9',
+    textPrimary: isDarkMode ? '#E2E2E9' : '#1F1F1F',
+    textSecondary: isDarkMode ? '#8C9099' : '#44474E',
     googleBlue: '#0B57D0',
-    quoteBg: isDarkMode ? '#1E293B' : '#FFFFFF',
+    quoteBg: isDarkMode ? '#1E2025' : '#F0F4F9',
     quoteBorder: isDarkMode ? 'rgba(11, 87, 208, 0.25)' : '#E1E9F5',
   };
 
@@ -183,7 +181,16 @@ export default function HomeScreen({
           ) : (
             <View style={styles.marqueeContainer}>
               <Animated.View style={[styles.marqueeTrack, { transform: [{ translateX }] }]}>
-                <Text style={[styles.quoteText, { color: colors.textPrimary }]}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.quoteText, { color: colors.textPrimary }]}
+                  onLayout={(e) => {
+                    const w = e.nativeEvent.layout.width;
+                    if (w > 0) {
+                      startMarqueeAnimation(w + 100);
+                    }
+                  }}
+                >
                   "{quote?.text}" <Text style={{ color: colors.googleBlue, fontWeight: '700' }}>— {quote?.author}</Text>
                 </Text>
               </Animated.View>
@@ -196,7 +203,7 @@ export default function HomeScreen({
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Categories</Text>
         </View>
 
-        {/* Category Filter Chips (White Background + Colored Text & Outlining) */}
+        {/* Category Filter Chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
           {uniqueCategories.map((item, index) => {
             const isSelected = filter === item;
@@ -238,7 +245,7 @@ export default function HomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Alarms List with Subtle Color Tint */}
+        {/* Alarms List */}
         {filteredReminders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="alarm-outline" size={56} color={colors.googleBlue} />
@@ -265,12 +272,20 @@ export default function HomeScreen({
               >
                 <View style={styles.listCardLeft}>
                   <View style={[styles.docIconBox, { backgroundColor: cardColor }]}>
-                    <Ionicons name={cardIcon} size={12} color="#FFFFFF" />
+                    <Ionicons name={cardIcon} size={14} color="#FFFFFF" />
                   </View>
                   <View style={styles.listTextCol}>
-                    <Text style={[styles.listTimeSub, { color: cardColor }]}>
-                      {formatTime(reminder.hour, reminder.minute)} • {reminder.label}
-                    </Text>
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={[styles.listTimeSub, { color: cardColor }]}>
+                        {formatTime(reminder.hour, reminder.minute)} • {reminder.label}
+                      </Text>
+                      {reminder.repeatType === 'date' && reminder.targetDate ? (
+                        <View style={[styles.dateBadge, { backgroundColor: cardColor + '18' }]}>
+                          <Ionicons name="calendar-outline" size={10} color={cardColor} />
+                          <Text style={[styles.dateBadgeText, { color: cardColor }]}>{reminder.targetDate}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={[styles.listTitle, { color: colors.textPrimary }]}>{reminder.title}</Text>
                     {!!reminder.note && (
                       <View style={styles.noteRow}>
@@ -288,7 +303,7 @@ export default function HomeScreen({
                     style={[styles.doneIconBtn, { backgroundColor: cardColor }]}
                     onPress={() => handleLogNow(reminder)}
                   >
-                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
@@ -358,28 +373,26 @@ const styles = StyleSheet.create({
   },
   cyanHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cyanIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   cyanBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
     backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
-  cyanBadgeText: { fontSize: 11, fontWeight: '800', color: '#0891B2' },
+  cyanBadgeText: { color: '#0891B2', fontSize: 12, fontWeight: '800', fontFamily },
   cyanCardTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', marginTop: 12, fontFamily },
   quoteCard: {
     borderRadius: 20,
+    borderWidth: 1,
     padding: 14,
     marginBottom: 20,
-    borderWidth: 1,
     overflow: 'hidden',
   },
   quoteHeaderRow: {
@@ -388,74 +401,130 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  quoteTagRow: { flexDirection: 'row', alignItems: 'center' },
-  quoteTagText: { fontSize: 11, fontWeight: '800', marginLeft: 6, letterSpacing: 0.5, fontFamily },
-  refreshQuoteBtn: { padding: 4 },
-  marqueeContainer: { height: 26, width: '100%', overflow: 'hidden', justifyContent: 'center' },
-  marqueeTrack: { flexDirection: 'row', alignItems: 'center', position: 'absolute', width: 800 },
-  quoteText: { fontSize: 13, fontWeight: '600', fontStyle: 'italic', fontFamily },
+  quoteTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quoteTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginLeft: 6,
+    fontFamily,
+  },
+  refreshQuoteBtn: {
+    padding: 4,
+  },
+  marqueeContainer: {
+    height: 28,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  marqueeTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 4000,
+  },
+  quoteText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontStyle: 'italic',
+    fontFamily,
+    ...Platform.select({
+      web: {
+        whiteSpace: 'nowrap',
+      },
+    }),
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 14, fontWeight: '700', fontFamily },
-  seeAllText: { fontSize: 13, fontWeight: '600', fontFamily },
-  filterRow: { flexDirection: 'row', marginBottom: 20, maxHeight: 38 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', fontFamily, letterSpacing: 0.5 },
+  seeAllText: { fontSize: 13, fontWeight: '700', fontFamily },
+  filterRow: { flexDirection: 'row', marginBottom: 20 },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  chipText: { fontSize: 13, fontWeight: '700', fontFamily },
-  emptyContainer: { alignItems: 'center', marginVertical: 35 },
+  chipText: { fontSize: 13, fontFamily },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
   emptyTitle: { fontSize: 16, fontWeight: '700', marginTop: 12, fontFamily },
   emptySubtitle: { fontSize: 13, marginTop: 4, fontFamily },
   listCard: {
-    borderRadius: 24,
-    padding: 16,
-    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 20,
     borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 12,
   },
   listCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   docIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  listTextCol: { flex: 1 },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+    paddingRight: 8,
+  },
+  listTimeSub: { fontSize: 12, fontWeight: '700', fontFamily },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 3,
+  },
+  dateBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  listTitle: { fontSize: 16, fontWeight: '700', fontFamily, marginTop: 1 },
+  noteRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  noteText: { fontSize: 12, fontFamily, flex: 1 },
+  listCardRight: { marginLeft: 10 },
+  doneIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listTextCol: { marginLeft: 10, flex: 1 },
-  listTimeSub: { fontSize: 12, fontWeight: '700', fontFamily },
-  listTitle: { fontSize: 16, fontWeight: '700', marginTop: 2, fontFamily },
-  noteRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  noteText: { fontSize: 12, fontWeight: '500', fontStyle: 'italic', flex: 1, fontFamily },
-  listCardRight: { flexDirection: 'row', alignItems: 'center' },
-  doneIconBtn: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
   fabCircle: {
     position: 'absolute',
     bottom: 24,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    right: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#0B57D0',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#0B57D0',
     shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    shadowRadius: 10,
+    elevation: 6,
   },
 });

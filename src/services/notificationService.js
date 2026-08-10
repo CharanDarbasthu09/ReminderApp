@@ -74,12 +74,58 @@ export const requestNotificationPermissions = async () => {
 };
 
 export const scheduleReminderNotifications = async (reminder) => {
-  if (!reminder.isEnabled || !reminder.days || reminder.days.length === 0) return [];
+  if (!reminder.isEnabled) return [];
 
   await cancelReminderNotifications(reminder.notificationIds || []);
 
   const scheduledIds = [];
   const typeLabel = reminder.type || 'ALARM';
+
+  // Handle Specific Date Alarm
+  if (reminder.repeatType === 'date' && reminder.targetDate) {
+    try {
+      const [y, m, d] = reminder.targetDate.split('-').map(Number);
+      const targetDateObj = new Date(y, m - 1, d, reminder.hour ?? 9, reminder.minute ?? 0, 0);
+
+      // Only schedule if target time is in the future
+      if (targetDateObj.getTime() > Date.now()) {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `⏰ ALARM: ${reminder.title}`,
+            body: reminder.note
+              ? `[${typeLabel} • ${reminder.label}] ${reminder.note}`
+              : `${typeLabel} Alarm for [${reminder.label}]! Tap or press Snooze.`,
+            data: {
+              reminderId: reminder.id,
+              title: reminder.title,
+              type: reminder.type,
+              label: reminder.label,
+              color: reminder.color || '#EF4444',
+              note: reminder.note,
+              snoozeMinutes: reminder.snoozeMinutes || 5,
+              targetDate: reminder.targetDate,
+            },
+            sound: 'default',
+            categoryIdentifier: 'alarm_category',
+            interruptionLevel: 'timeSensitive',
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: targetDateObj,
+            channelId: 'alarm_channel',
+          },
+        });
+        scheduledIds.push(id);
+      }
+    } catch (e) {
+      console.warn('Failed to schedule specific date alarm', e);
+    }
+
+    return scheduledIds;
+  }
+
+  // Handle Weekly Recurring Alarm
+  if (!reminder.days || reminder.days.length === 0) return [];
 
   for (const dayOfWeek of reminder.days) {
     try {
@@ -99,7 +145,7 @@ export const scheduleReminderNotifications = async (reminder) => {
             snoozeMinutes: reminder.snoozeMinutes || 5,
           },
           sound: 'default',
-          categoryIdentifier: 'alarm_category', // Enables Lock-Screen Snooze & Dismiss Action Buttons!
+          categoryIdentifier: 'alarm_category',
           interruptionLevel: 'timeSensitive',
         },
         trigger: {
@@ -165,6 +211,29 @@ export const scheduleTestNotification = async (label = 'Test Task', type = 'ALAR
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: 5,
+      repeats: false,
+      channelId: 'alarm_channel',
+    },
+  });
+};
+
+export const pinStickyNoteNotification = async (stickyNote) => {
+  await requestNotificationPermissions();
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `📌 STICKY NOTE: ${stickyNote.title || 'Note'}`,
+      body: stickyNote.content || 'Pinned note on your phone screen!',
+      data: {
+        noteId: stickyNote.id,
+        isStickyNote: true,
+      },
+      sound: 'default',
+      interruptionLevel: 'active',
+      sticky: true, // Keep notification persistent on Android/iOS
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 2,
       repeats: false,
       channelId: 'alarm_channel',
     },

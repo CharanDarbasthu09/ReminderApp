@@ -1,3 +1,44 @@
+// Polyfill global document & window.location safely for React Native & Web
+if (typeof global !== 'undefined') {
+  if (typeof global.document === 'undefined') {
+    global.document = {
+      createElement: () => ({ style: {} }),
+      getElementsByTagName: () => [],
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      title: 'Reminder App',
+      body: { style: {} },
+      documentElement: { style: {} },
+      location: { protocol: 'http:', href: 'http://localhost:8081/' },
+    };
+  }
+  if (typeof global.window !== 'undefined') {
+    if (!global.window.document) {
+      global.window.document = global.document;
+    }
+    if (!global.window.location || typeof global.window.location.protocol === 'undefined') {
+      try {
+        global.window.location = {
+          protocol: 'http:',
+          host: 'localhost:8081',
+          hostname: 'localhost',
+          port: '8081',
+          pathname: '/',
+          search: '',
+          hash: '',
+          href: 'http://localhost:8081/',
+          origin: 'http://localhost:8081',
+          assign: () => {},
+          reload: () => {},
+          replace: () => {},
+        };
+      } catch (e) {}
+    }
+  }
+}
+
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, StatusBar, ActivityIndicator, Alert, useColorScheme } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -8,11 +49,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
 import HomeScreen from './src/screens/HomeScreen';
+import CalendarScreen from './src/screens/CalendarScreen';
+import NotesScreen from './src/screens/NotesScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import MindGamesScreen from './src/screens/MindGamesScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import AddEditReminderModal from './src/screens/AddEditReminderModal';
 import RingingAlarmModal from './src/components/RingingAlarmModal';
+import FunnySplashScreen from './src/components/FunnySplashScreen';
 
 import { getStoredReminders, getStoredHistory, logCheckActivity } from './src/services/storageService';
 import { requestNotificationPermissions, scheduleSnoozeNotification } from './src/services/notificationService';
@@ -133,14 +177,14 @@ export default function App() {
     setModalVisible(true);
   };
 
-  if (loading) {
+  const [showSplash, setShowSplash] = useState(true);
+
+  if (loading || showSplash) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? '#111318' : '#F0F4F9' }]}>
-        <ActivityIndicator size="large" color="#0B57D0" />
-        <Text style={[styles.loadingText, { color: isDarkMode ? '#8C9099' : '#44474E' }]}>
-          Loading Alarms...
-        </Text>
-      </View>
+      <FunnySplashScreen
+        onFinish={() => setShowSplash(false)}
+        isDarkMode={isDarkMode}
+      />
     );
   }
 
@@ -161,7 +205,10 @@ export default function App() {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={themeColors.bg}
         />
-        <NavigationContainer>
+        <NavigationContainer
+          linking={{ enabled: false }}
+          documentTitle={{ enabled: false }}
+        >
           <Tab.Navigator
             screenOptions={({ route }) => ({
               headerStyle: {
@@ -186,6 +233,10 @@ export default function App() {
                 let iconName;
                 if (route.name === 'Alarms') {
                   iconName = focused ? 'home' : 'home-outline';
+                } else if (route.name === 'Calendar') {
+                  iconName = focused ? 'calendar' : 'calendar-outline';
+                } else if (route.name === 'Notes') {
+                  iconName = focused ? 'create' : 'create-outline';
                 } else if (route.name === 'History') {
                   iconName = focused ? 'document-text' : 'document-text-outline';
                 } else if (route.name === 'Mind Games') {
@@ -215,6 +266,28 @@ export default function App() {
             </Tab.Screen>
 
             <Tab.Screen
+              name="Calendar"
+              options={{ title: 'Calendar 📅' }}
+            >
+              {() => (
+                <CalendarScreen
+                  reminders={reminders}
+                  setReminders={setReminders}
+                  onOpenAddEdit={handleOpenAddEdit}
+                  onRefreshHistory={handleRefreshHistory}
+                  isDarkMode={isDarkMode}
+                />
+              )}
+            </Tab.Screen>
+
+            <Tab.Screen
+              name="Notes"
+              options={{ title: 'Notes 📝' }}
+            >
+              {() => <NotesScreen isDarkMode={isDarkMode} />}
+            </Tab.Screen>
+
+            <Tab.Screen
               name="History"
               options={{ title: 'Activity Log' }}
             >
@@ -223,7 +296,7 @@ export default function App() {
 
             <Tab.Screen
               name="Mind Games"
-              options={{ title: 'Mind Games 🧠' }}
+              options={{ title: 'Funny Time 🤪' }}
             >
               {() => <MindGamesScreen isDarkMode={isDarkMode} />}
             </Tab.Screen>
@@ -264,7 +337,17 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14, fontWeight: '600' },
+  safeArea: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
