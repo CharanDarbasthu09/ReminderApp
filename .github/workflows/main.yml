@@ -26,6 +26,11 @@ jobs:
       - name: Prebuild Native iOS Project
         run: npx expo prebuild --platform ios --no-install
 
+      - name: Bundle React Native Code
+        run: |
+          mkdir -p ios/ReminderApp
+          npx react-native bundle --platform ios --dev false --entry-file node_modules/expo/AppEntry.js --bundle-output ios/ReminderApp/main.jsbundle --assets-dest ios/ReminderApp || true
+
       - name: Set iOS 16.0 Deployment Target in Podfile
         run: |
           sed -i '' "s/platform :ios, .*/platform :ios, '16.0'/g" ios/Podfile || true
@@ -48,7 +53,12 @@ jobs:
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGNING_ALLOWED=NO \
                      AD_HOC_CODE_SIGNING_ALLOWED=YES \
-                     build
+                     COMPILER_INDEX_STORE_ENABLE=NO \
+                     build || {
+                       echo "=== XCODEBUILD FAIL ERRORS ==="
+                       cat build/Logs/Build/*.xcactivitylog 2>/dev/null | strings | grep -E "error:|fatal error:" | head -n 30
+                       exit 1
+                     }
 
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/*.app Payload/
